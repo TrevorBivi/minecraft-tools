@@ -18,6 +18,9 @@ REQUIREMENTS:
   
 TO DO:
 - add functions to manipulate inventory
+- add line_intersect_tri param option to return False if slope is not in direction of triangle
+  (checking if the player is looking at a quad/tri using cam_line() with a line_intersect_...()
+  will return true if player is looking in the exact opposite direction)
 '''
 
 
