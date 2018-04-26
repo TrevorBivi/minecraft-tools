@@ -82,7 +82,6 @@ def get_val(process,addr,typ):
     while not ReadProcessMemory(processHandle, addr, byref(buffer), bufferSize, byref(bytesRead)):
         print ("Failed to read",process,hex(addr),typ)
     if buffer.value == None:
-        print('got 0')
         return 0
     return struct.unpack(typ, struct.pack("I", buffer.value)   )[0]
 
