@@ -141,3 +141,37 @@ def player_position():
         'rx':rx,
         'ry': ry
     }
+
+
+def get_tid(proc_id):
+    '''
+    get the ids of processes's threads
+    (This function is only the first step of reading a base pointer relative to a threadstack)
+    haven't needed to do but steps are as follows https://stackoverflow.com/questions/48237813/
+    
+    - Get the id of each thread (wew)
+    - Get a Handle to the thread: Use OpenThread() 
+    - import NtQueryInformationThread which is an undocumented function exported by ntdll.dll
+    - call NtQueryInformationThread() with the thread handle in the first argument and ThreadBasicInformation as the second. The result is a THREAD_BASIC_INFORMATION structure with member variable StackBase.
+    - StackBase is the address of THREADSTACK, just match it with the correct id. 
+    
+    '''
+    hSnapshot = c_void_p(0)
+    te32 = THREADENTRY32 ()
+    te32.dwSize = sizeof(THREADENTRY32 )
+
+    hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD,0)
+        
+    thr_ids = []
+    
+    ret = Thread32First(hSnapshot, pointer(te32))
+    if ret == 0:
+        CloseHandle(hSnapshot)
+        return false
+    
+    while ret :
+        if te32.th32OwnerProcessID == proc_id:
+            print('thr_id',te32.th32ThreadID, '  tpBasePri',te32.tpBasePri,'  tpDeltaPri',te32.tpDeltaPri, '  cntUsage',te32.cntUsage,'  dwSize',te32.dwSize  )
+            thr_ids.append( te32.th32ThreadID)
+        ret = Thread32Next(hSnapshot, pointer(te32))
+    return thr_ids
