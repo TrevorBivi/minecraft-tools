@@ -142,6 +142,15 @@ def player_position():
         'ry': ry
     }
 
+class THREADENTRY32(Structure):
+    _fields_ = [
+        ('dwSize' , c_long ),
+        ('cntUsage' , c_long),
+        ('th32ThreadID' , c_long),
+        ('th32OwnerProcessID' , c_long),
+        ('tpBasePri' , c_long),
+        ('tpDeltaPri' , c_long),
+        ('dwFlags' , c_long) ]
 
 def get_tid(proc_id):
     '''
@@ -171,7 +180,7 @@ def get_tid(proc_id):
     
     while ret :
         if te32.th32OwnerProcessID == proc_id:
-            print('thr_id',te32.th32ThreadID, '  tpBasePri',te32.tpBasePri,'  tpDeltaPri',te32.tpDeltaPri, '  cntUsage',te32.cntUsage,'  dwSize',te32.dwSize  )
+            #print('thr_id',te32.th32ThreadID, '  tpBasePri',te32.tpBasePri,'  tpDeltaPri',te32.tpDeltaPri, '  cntUsage',te32.cntUsage,'  dwSize',te32.dwSize  )
             thr_ids.append( te32.th32ThreadID)
         ret = Thread32Next(hSnapshot, pointer(te32))
     return thr_ids
