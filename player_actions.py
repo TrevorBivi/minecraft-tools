@@ -18,9 +18,6 @@ REQUIREMENTS:
   
 TO DO:
 - add functions to manipulate inventory
-- add line_intersect_tri param option to return False if slope is not in direction of triangle
-  (checking if the player is looking at a quad/tri using cam_line() with a line_intersect_...()
-  will return true if player is looking in the exact opposite direction)
 '''
 
 
@@ -349,17 +346,30 @@ def wait_to_cross(var,val,scan_freq=0.02,max_time = 99):
         time.sleep(scan_freq)
     return True
 
-def jump_peak_wait(jump=True, scan_freq = 0.033):
+def jump_peak_wait(jump=True, use_start_height=True, scan_freq = 0.0175):
     '''
     wait to reach the peak of a jump
     '''
-    if jump:
-        press(' ')
+    
 
     last_y = -999
     new_y = player_position()['y']
-    
-    while new_y > last_y:
-        time.sleep(scan_freq)
+
+    if jump:
+        if use_start_height:
+            start_y = round(player_position()['y'])
+            key_dwn(' ')
+        else:
+            press(' ')
+
+    while True:
         last_y = new_y
         new_y = player_position()['y']
+        vel = new_y - last_y
+        if use_start_height:
+            if new_y - start_y > 1 and vel > 0:
+                key_up(' ')
+                break
+        elif vel < 0:
+            break
+
