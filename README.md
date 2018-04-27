@@ -2,7 +2,7 @@
 A variety of useful tools for minecraft that are mainly focused on automating player actions.
 
 ## read_memory.py
-Contains functions for reading key memory addresses to gather information about the player.
+Contains functions for reading game memory addresses to gather information about the player.
 
 ## read_save_file.py
 Contains functions for reading block ids of the game world from chunk save data (game autosaves chunk data every 30 seconds).
