@@ -46,37 +46,42 @@ pallet_groups = {
     ),
         
     1:(#place col in increasing z direction
+    
     (21,21,21),#black wool   - normal value
-    (17,17,17),#               beveled value
+    (25,25,25),#             bevel value
 
-    (75,75,75),#grey wool
     (52,52,52),
+    (64,64,64),
+    #grey wool
 
-    (95,95,95),#cobble stone
-    (78,78,78),
+    (75,75,75),#cobble stone
+    (77,77,77),
 
-    (151,151,151),#light grey wool
-    (107,107,107),
+    (106,106,106),
+    (129,129,129),#light grey wool
+    
 
-    (217,217,217),#white wool
-    (178,178,178),
+    (216,216,216),#white wool
+    (250,250,250),
     ),
 
     -1:(#place col in decreasing z direction
+    (17,17,17),#               beveled value
     (21,21,21),#black wool - normal value
-    (25,25,25),#             bevel value
+    
 
     (64,64,64),#grey wool
     (75,75,75), 
 
-    (95,95,95),#cobble stone
-    (111,111,111),
+    (94,94,94),#cobble stone
+    (110,110,110),
 
-    (130,130,130),#light grey wool
-    (151,151,151),
+    (129,129,129),#light grey wool
+    (150,150,150),
 
-    (217,217,217),#white wool
-    (252,252,252),
+    (176,176,176),
+    (216,216,216),#white wool
+    
     )
 },
 
@@ -189,8 +194,21 @@ class board(object):
         Return (block_id, jump place 1 higher)
         '''
         x,z=xz
-        col_id = self.pxl_dat[x][z]
-        block_id = col_id // 2
-        y_dir = col_id % 2
-        return block_id, y_dir 
+        print('xz',xz)
+        if self.build_dir == 1:
+            color_id = self.pxl_dat[x][z]
+            slot = color_id // 2
+            y_dir = color_id % 2
         
+        else:
+            if x == self.height:
+                slot = 8
+            else:
+                slot = self.pxl_dat[self.height - 1 - x][z] // 2
+
+            if x == 0:
+                y_dir = 0
+            else:
+                y_dir = 1 - self.pxl_dat[self.height - x][z] % 2
+        slot += 1
+        return slot,y_dir
