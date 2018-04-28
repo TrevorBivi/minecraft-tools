@@ -24,6 +24,9 @@ board -- represents an image
 
 REQUIREMENTS:
 - must use creative mode
+
+USEFUL INFO:
+- https://minecraft.gamepedia.com/Map_item_format#Color_table
 '''
 
 import tkinter as tk
