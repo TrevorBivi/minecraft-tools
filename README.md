@@ -16,5 +16,5 @@ Used to convert image file's pixels into the appropriate in game representation 
 ## board_builder.py
 Controls the player to place the image board in game. By doing this manually it can allow people to place images on servers and in survival mode (But only once I add tools to player_actions.py to manipulate the inventory so it can refill the inventory slots with blocks to place)
 
-_A picture of a sphere placed in game using board_generator.py and board_builder.py_
+_A picture of a sphere placed in game using board_generator.py and board_builder.py. 5 different block types were used which with elevation shading allows for 10 different colors_
 ![Example board](https://github.com/TrevorBivi/minecraft-tools/raw/master/example%20board.jpg "Example board")
