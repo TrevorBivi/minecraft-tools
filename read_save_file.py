@@ -81,9 +81,9 @@ def get_bits(field,start,size):
     '''
     return int representing bits from field starting at index start and of size size
     '''
-	val = field >> start
-	val = val & (2 ** size - 1)
-	return val
+    val = field >> start
+    val = val & (2 ** size - 1)
+    return val
 
 def test_get_bits():
     for i in range(15):
@@ -102,7 +102,7 @@ def test_get_bits():
 
 class BlockState():
     '''
-    represents a possible state a block can be. block states are stored in palette.states
+    represents a possible state a block can be. block states are stored in Palette.states
     '''
     def __init__(self,name,description=None):
         self.name = name
@@ -112,7 +112,7 @@ class Palette():
     '''
     represents all possible states a block can be in a given section
     '''
-    def __init__(self,byteData):
+    def __init__(self,byteData=''):
         entries = get_indexs(byteData,b'\x08\x00\x04Name')
         props = get_indexs(byteData,b'\n\x00\nProperties')
         next_props = 0
@@ -132,18 +132,21 @@ class Chunk():
     '''
     represents a chunk filled with blocks 
     '''
-    def __init__(self,coords):
+    def __init__(self,coords,region):
         self.coords = coords
-        self.blocks = {}        
+        self.blocks = {}
+        self.region = region
+        self.palette = [] #for convinence. chunks dont actually have pallets in game, only sections within them.
 
 class Block():
     '''
     represents a block in game
     '''
-    def __init__(self,coords,palette,state):
+    def __init__(self,coords,chunk,palette,state):
         self.coords = coords
         self.palette = palette
         self.state = state
+        self.chunk = chunk
 
     def __getattr__(self,attrName):
         if attrName in ('name','description'):
@@ -158,30 +161,33 @@ class Block():
 
     @property
     def name(self):
-        if len(self.palette.states) > self.state:
+        if len(self.Palette.states) > self.state:
             return None
-        return self.palette[self.state].name
+        return self.Palette[self.state].name
         
     @property
     def description(self):
-        if len(self.palette.states) > self.state:
+        if len(self.Palette.states) > self.state:
             return None
-        return self.palette[self.state].description
+        return self.Palette[self.state].description
     '''
 
 class Region():
     '''
     represents a region filled with chunks
     '''
-    def __init__(self,coords,path,version = '1.13',print_info=False):
-        if print_info: print('[' + 14 * ' ' + ']')
+    def __init__(self,path,version = '1.13',print_info=False):
+        temp = path.split('.')
+        self.coords = int(temp[-3]), int(temp[-2])
         
-        with open(path + '\\r.' + str(coords[0]) + '.' + str(coords[1]) + '.mca', 'rb') as file:
+        with open(path, 'rb') as file:
             locations = file.read(4*1024)
             timestamps = file.read(4*1024)
             data = file.read()
             self.chunks = {}
 
+            #newPalette = Palette()
+            
             #for all chunks (16x256x16)
             for index in range(0,4096,4):
                 if print_info and index % 256 == 0: print('#',end='')
@@ -193,10 +199,13 @@ class Region():
                     chunk_coords = file_location_to_chunk(index)
                     
                     if version == '1.13':
-                        self.chunks[chunk_coords] = Chunk(chunk_coords) #chunks are described using new chunk object (using property 'blocks'-a dict of coord keys and block object values )
+                        newChunk = Chunk(chunk_coords,self) #chunks are described using new chunk object (using property 'blocks'-a dict of coord keys and block object values )
+                        self.chunks[chunk_coords] = newChunk
+
+                        newChunk.palette = Palette()
                         
                         section_ys = get_indexs(chunk_dat,b'\x01\x00\x01Y') #y values of all sections
-                        block_state_starts = get_indexs(chunk_dat,b'\x0c\x00\x0bBlockStates') #list of state of blocks (pallet index)   
+                        block_state_starts = get_indexs(chunk_dat,b'\x0c\x00\x0bBlockStates') #list of state of blocks (Palette index)   
                         palette_starts = get_indexs(chunk_dat,b'\t\x00\x07Palette') #blocks that there are at least 1 of in this section (and always air at index 0)
                         palette_ends = get_indexs(chunk_dat, b'\x07\x00\x08SkyLight')
                         assert len(section_ys) == len(block_state_starts ) == len(palette_starts) == len(palette_ends)
@@ -204,12 +213,10 @@ class Region():
                         #for all sections (16x16x16)
                         for si,(yi,bsi,psi,pei) in enumerate( zip(section_ys,block_state_starts,palette_starts,palette_ends)):
                             ys = chunk_dat[yi+4]
-
-                        for si,(yi,bsi,psi,pei) in enumerate( zip(section_ys,block_state_starts,palette_starts,palette_ends)):
-                            ys = chunk_dat[yi+4]
                             #print('si',si)
-                            palette = Palette(chunk_dat[psi:pei])#get_palette(chunk_dat[psi:pei])
-                            
+                            palette = Palette(chunk_dat[psi:pei])#get_Palette(chunk_dat[psi:pei])
+
+                            newChunk.palette.states += [s for s in palette.states if s not in newChunk.palette.states]
                             b_size = int((psi-bsi-18)/8/64)
                             assert b_size ==  (psi-bsi-18)/8/64
                             int_val = int.from_bytes( chunk_dat[bsi + 17:psi-1],byteorder='little')
@@ -220,7 +227,7 @@ class Region():
                                         
                                         dat_pos = (x+z*16+y*256) * b_size
                                         val = get_bits(int_val,dat_pos,b_size)
-                                        self.chunks[chunk_coords].blocks[(x,y+ys*16,z)] = Block((x,y,z),palette,val)
+                                        newChunk.blocks[(x,y+ys*16,z)] = Block((x,y,z),newChunk,palette,val)
                                         
                     elif version == '1.12': #may work for versions as far back as 1.3
                         chunk_arr = np.full((16,256,16),-1,dtype=int) #chunks are descriped as a numpy array
@@ -262,13 +269,13 @@ def get_indexs(byteData,val):
 
 
 
-if __name__ == '__main__':
-    print('start parse...')
-    r = Region((0,0),'C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region',print_info=True)
+#f __name__ == '__main__':
+#    print('start parse...')
+#    r = Region(('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region',print_info=True)
 
 
 '''
-def get_palette(byteData):
+def get_Palette(byteData):
     entries = get_indexs(byteData,b'\x08\x00\x04Name')
     props = get_indexs(byteData,b'\n\x00\nProperties')
     next_props = 0

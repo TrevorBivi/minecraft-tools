@@ -62,27 +62,28 @@ key_codes = {
     'e':0x45,
 }
 
-def key_dwn(key=None):
+def key_dwn(key=None,ignore_crouch=False):
     if key:
-        if key == 'ctrl':
+        if key == 'ctrl' and ignore_crouch:
             player_height = 1.54
         win32gui.SendMessage(window,#win handle
                              win32con.WM_KEYDOWN,#msg
                              key_codes[key],
                              0) # all 0 flags is fine
 
-def key_up(key=None):
+def key_up(key=None,ignore_crouch=False):
     if key:
-        player_height = 1.62
+        if key == 'ctrl' and ignore_crouch:
+            player_height = 1.62
         win32gui.SendMessage(window,
                              win32con.WM_KEYUP,
                              key_codes[key],
                              0xC0000000) # previous key state and transition state flags must be 1
 
-def press(key,press_time=0.05):
-    key_dwn(key)
+def press(key,press_time=0.05,ignore_crouch=False):
+    key_dwn(key,ignore_crouch)
     time.sleep(press_time)
-    key_up(key)
+    key_up(key,ignore_crouch)
 
 ###### some useful math stuff
 def get_pnt_rot(pnt,pos):
