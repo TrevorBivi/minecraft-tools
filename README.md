@@ -11,7 +11,7 @@ __read_memory.py__
 Contains functions for reading game memory addresses to gather information about the player.
 
 __world_generator.py__
-Used to auto generate worlds and search for desirable world traits. Contains example functions for searching for world that has an ocean ravine very close to a sunken ship and contains a jungle somewhere within up to 32 chunks of spawn.
+Used to auto generate worlds and search for desirable world traits within up to 32 chunks of spawn. Contains example functions for searching for world that has an ocean ravine very close to a sunken ship and contains a jungle.
 
 __board_generator.py__
 Used to convert an image such as a .png or .jpg into the appropriate in game representation (a block type and wether or not the player should increase the height of the column the pixel is part of to apply elevation shading to pixel on map)
