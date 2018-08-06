@@ -138,6 +138,18 @@ class Chunk():
         self.region = region
         self.palette = [] #for convinence. chunks dont actually have pallets in game, only sections within them.
 
+    @property
+    def absolute_coords(self):
+        region_coords = change_coords(self.region.absolute_coords,'region','chunk')
+        return tuple((self.coords[i] + region_coords[i] for i in range(2)))
+
+    def y_range(self,mini = 0,maxi = 255,dv=1,dh=1):
+        for x in range(0,16,dh):
+            for z in range(0,16,dv):
+                for y in range(mini,maxi,dv):
+                    if (x,y,z) in self.blocks:
+                        yield self.blocks[(x,y,z)]
+                    
 class Block():
     '''
     represents a block in game
@@ -155,6 +167,14 @@ class Block():
             else:
                 return None
         raise AttributeError('attribute does not exist')
+
+    @property
+    def absolute_coords(self):
+        chunk_coords = change_coords(self.chunk.absolute_coords,'chunk','block')
+        return (self.coords[0] + chunk_coords[0], self.coords[1], self.coords[2] + chunk_coords[1])
+
+    def above(self,amount):
+        return self.chunk.blocks[ (self.coords[0],self.coords[1]+amount,self.coords[2]) ]
 
     '''
     replaced to easily support further block state property parsing
@@ -190,7 +210,9 @@ class Region():
             
             #for all chunks (16x256x16)
             for index in range(0,4096,4):
-                if print_info and index % 256 == 0: print('#',end='')
+                if print_info and index % (4096 // 10) < 4:
+                    dig = 9 - (index // (4096 // 10))
+                    print(str( dig ) + '...',end='\n' if dig == 0 else '')
                 
                 offset = (int.from_bytes(locations[index:index+3],'big')-2)*4096
                 if offset >= 0:
@@ -247,7 +269,10 @@ class Region():
                         chunks[chunk_coords] = chunk_arr
                     else:
                         raise ValueError('unsupported save version (version=' + version + ')')
-                    
+    @property
+    def absolute_coords(self):
+        return self.coords
+    
 def id_counts(chunk):
     '''
     return count of block id in chunk
@@ -269,10 +294,10 @@ def get_indexs(byteData,val):
 
 
 
-#f __name__ == '__main__':
-#    print('start parse...')
-#    r = Region(('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region',print_info=True)
-
+if __name__ == '__main__':
+    print('start parse...')
+    rn1n1 = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region\\r.-1.-1.mca',print_info=True)
+    r00 = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region\\r.0.0.mca',print_info=True)
 
 '''
 def get_Palette(byteData):
