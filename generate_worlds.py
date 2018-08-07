@@ -1,7 +1,7 @@
 '''
 A simple script for automatically generating minecraft worlds to find desirable spawns
 '''
-
+import abc
 import os
 import cv2
 import numpy as np
@@ -29,114 +29,6 @@ button_delete = cv2.imread('imgs\\button_delete.png',cv2.IMREAD_UNCHANGED)
 text_new_world = cv2.imread('imgs\\text_new_world.png',cv2.IMREAD_UNCHANGED)
 text_select_world = cv2.imread('imgs\\text_select_world.png',cv2.IMREAD_UNCHANGED)
 masked_text_select_world = cv2.imread('imgs\\masked_text_select_world.png',cv2.IMREAD_UNCHANGED)
-
-#virtual key codes for keyboard events
-'''key_codes = {'backspace':0x08,
-           'tab':0x09,
-           'enter':0x0D,
-           'shift':0x10,
-           'ctrl':0x11,
-           'alt':0x12,
-           'pause':0x13,
-           'caps_lock':0x14,
-           'esc':0x1B,
-           ' ':0x20,
-           'page_up':0x21,
-           'page_down':0x22,
-           'end':0x23,
-           'home':0x24,
-           'left_arrow':0x25,
-           'up_arrow':0x26,
-           'right_arrow':0x27,
-           'down_arrow':0x28,
-           'print_screen':0x2C,
-           'ins':0x2D,
-           'del':0x2E,
-           '0':0x30,
-           '1':0x31,
-           '2':0x32,
-           '3':0x33,
-           '4':0x34,
-           '5':0x35,
-           '6':0x36,
-           '7':0x37,
-           '8':0x38,
-           '9':0x39,
-           'a':0x41,
-           'b':0x42,
-           'c':0x43,
-           'd':0x44,
-           'e':0x45,
-           'f':0x46,
-           'g':0x47,
-           'h':0x48,
-           'i':0x49,
-           'j':0x4A,
-           'k':0x4B,
-           'l':0x4C,
-           'm':0x4D,
-           'n':0x4E,
-           'o':0x4F,
-           'p':0x50,
-           'q':0x51,
-           'r':0x52,
-           's':0x53,
-           't':0x54,
-           'u':0x55,
-           'v':0x56,
-           'w':0x57,
-           'x':0x58,
-           'y':0x59,
-           'z':0x5A,
-           'F1':0x70,
-           'F2':0x71,
-           'F3':0x72,
-           'F4':0x73,
-           'F5':0x74,
-           'F6':0x75,
-           'F7':0x76,
-           'F8':0x77,
-           'F9':0x78,
-           'F10':0x79,
-           'F11':0x7A,
-           'F12':0x7B,
-           'num_lock':0x90,
-           'scroll_lock':0x91,
-           'left_shift':0xA0,
-           'right_shift ':0xA1,
-           'left_control':0xA2,
-           'right_control':0xA3,
-           '=':0xBB,
-           ',':0xBC,
-           '-':0xBD,
-           '.':0xBE,
-           '/':0xBF,
-           '`':0xC0,
-           ';':0xBA,
-           '[':0xDB,
-           '\\':0xDC,
-           ']':0xDD,
-           "'":0xDE,
-}'''
-'''
-def key_dwn(key=None):
-        win32gui.SendMessage(window,#win handle
-                             win32con.WM_KEYDOWN,#msg
-                             key_codes[key],
-                             0) # all 0 flags is fine
-
-def key_up(key=None):
-    if key:
-        win32gui.SendMessage(window,
-                             win32con.WM_KEYUP,
-                             key_codes[key],
-                             0xC0000000) # previous key state and transition state flags must be 1
-
-def press(key,press_time=0.05):
-    key_dwn(key)
-    time.sleep(press_time)
-    key_up(key)'''
-
 
 def screenshot(box = None):
     '''return image at given box on screen
@@ -202,18 +94,27 @@ def create_world(name,generation_time):
     pag.click(button)
     time.sleep(1)
 
-def check_world(name, chunk_checks = [], block_checks = [], min_score = 1):
+def check_world(name, checks=[], min_score = 1,remove_unused_chunks=True,print_info=True):
     score = 0
     region_dir = mc_dir +"\\saves\\" + name + '\\region'
     print(region_dir)
     for regionFile in os.listdir(region_dir):
         if regionFile.startswith('r.') and regionFile.endswith('.mca'):
-            region = Region(region_dir + '\\' + regionFile)
-            for chunk in region.chunks.values():
+            region = Region(region_dir + '\\' + regionFile,print_info=print_info)
+            important_chunks = {}
+            check_count = 0
+            for chunk,key in zip(region.chunks.values(),region.chunks):
+                if print_info and check_count % 10 == 0: print( '  chunk ' + str(check_count) + '/' + str(len(region.chunks)) + ' ' + str(regionFile)[2:-4] + '.' + str(chunk.coords) + '...')
                 #print('see a chunk with palette', [i.name for i in chunk.palette.states])
-                score += sum( (ccheck(chunk) for ccheck in chunk_checks) )
-                for bcheck in block_checks:
-                    score += sum((bcheck(block) for block in chunk.blocks.values()))
+                chunk_score = sum( (check.check(chunk) for check in checks) )
+                if chunk in tuple((check.detections[-1] for check in checks if len(check.detections))):
+                    important_chunks[key] = chunk
+                check_count += 1
+            if remove_unused_chunks:
+                region.chunks = important_chunks
+
+                ##for bcheck in block_checks:
+                    ##score += sum((bcheck(block) for block in chunk.blocks.values()))
     print(score)
     if score > min_score:
         return True
@@ -232,32 +133,148 @@ def delete_last_world():
         button,acc = match_template(screenshot(),button_delete)
         pag.click(button)
 
-#input('enter to start')
-#time.sleep(4)
 
-def find_underwater_ravine(chunk,ignore_found=False,known_neighbour=False):
-    #def notRavineException(Exception):pass
-    #try:
-                                 
-    if not find_underwater_ravine.found or ignore_found:
-        for dx in range(5,16,4):
-            for dz in range(5,16,4):
-                for y in range(20,60):
-                    if (dz,y,dx) in chunk.blocks and chunk.blocks[(dz,y,dz)].name != b'minecraft:water': break
+
+def dist(pnt1,pnt2):
+    '''
+    return squared distance between two 3d points
+    '''
+    return m.sqrt(sum([(pnt1[i]-pnt2[i])**2 for i in range(len(pnt1))]))
+
+class landmark_scorer(object):
+    '''
+    used to check for instances of a landmark and decide how they should be scored
+    '''
+    def __init__(self,score,max_score=float('inf'),multiplier = 1,min_dist=0): #,max_dist=float('inf')
+        self.max_score = max_score
+        self.min_dist = min_dist
+        #self.max_dist = max_dist
+        self.scored = 0
+        self.score = score
+        self.multiplier = multiplier
+        self.detections = []
+
+    @abc.abstractmethod
+    def check(self,to_check): pass
+
+    def get_next_score(self,coords=None):
+        print('get next score',coords)
+        if coords and self.get_min_dist(coords) < self.min_dist: return 0
+        new_score = self.score * self.multiplier ** len(self.detections)
+        new_score = min(new_score,self.max_score - self.scored)
+        self.scored += new_score
+        return new_score
+
+    def get_min_dist(self,coords):    
+        min_dist = float('inf')
+        for d in self.detections:
+            #print('dist',d.coords,coords)
+            new_dist = dist(d.coords,coords)
+            min_dist = min(new_dist,min_dist)
+        return min_dist
+
+    def __repr__(self):
+        return (type(self).__name__ + '\n  detections:' + str(len(self.detections)) + '\n  score:' + str(self.scored)  )
+
+class find_village(landmark_scorer):
+    def check(self,chunk):
+        #print('village check')
+        if b'minecraft:torch' in [s.name for s in chunk.palette.states] or b'minecraft:wall_torch' in [s.name for s in chunk.palette.states]:
+            for block in chunk.y_range(55,90):#search for lit building above ground
+                if block.name in (b'minecraft:torch',b'minecraft:wall_torch'):
+                    #print('found tourch', block.coords)
+                    for dy in range(35):
+                        above = block.above(dy)
+                        #print('  ','nne' if not above else (above.name,above.coords))
+                        if above and above.name in \
+                        (b'minecraft:stone',b'minecraft:dirt',b'minecraft:sand',b'minecraft:gravel',b'minecraft:andesite',b'minecraft:coal_ore',b'minecraft:diorite' ):
+                            break
+                    else:
+                        print('  found village')
+                        score = self.get_next_score(chunk.coords)
+                        self.detections.append(chunk)
+                        return score
+        return 0
+
+class find_ocean(landmark_scorer):
+    def check(self,chunk):
+        for block in chunk.y_range(41,48,8,dh=8):
+            if block.name != b'minecraft:water':
+                break
+        else:
+            if (4,60,4) in chunk.blocks and chunk.blocks[(4,60,4)].name == b'minecraft:water' and \
+               (4,64,4) in chunk.blocks and chunk.blocks[(4,64,4)].name == b'minecraft:air':
+                print('  found ocean')
+                score = self.get_next_score(chunk.coords)
+                self.detections.append(chunk)
+                return score
+        return 0
+
+class find_jungle(landmark_scorer):
+    def check(self,chunk):
+        if b'minecraft:jungle_leaves' in [s.name for s in chunk.palette.states]:
+            for block in chunk.y_range(65,80,1,dh=2):
+                if block.name == b'minecraft:jungle_wood':
+                    if block.above(1).name == b'minecraft:jungle_leaves':
+                        print('  found jungle')
+                        score = self.get_next_score(chunk.coords)
+                        self.detections.append(chunk)
+                        return score
+        return 0
+
+class find_mineshaft(landmark_scorer):
+    def check(self,chunk):
+        if b'_fence' in [s.name[-6:] for s in chunk.palette.states if s.name]:
+            for block in chunk.y_range(10,65,2,dh=3):
+                if block.name and block.name[-6:] == b'_fence' and block.above(1).name and block.above(1).name[-7:] == b'_planks':
+                    print('  found mineshaft')
+                    score = self.get_next_score(chunk.coords)
+                    self.detections.append(chunk)
+                    return score
+        return 0
+        
+class find_spawner(landmark_scorer):
+    def __init__(self,*args, **kwargs):
+        self.include_cave_spider = False
+        landmark_scorer.__init__(self,*args,**kwargs)
+        
+    def check(self,chunk):
+        if b'minecraft:spawner' in [s.name for s in chunk.palette.states]:
+            print('  found spawner')
+            score = self.get_next_score(chunk.coords)
+            self.detections.append(chunk)
+            return score
+        return 0
+
+f_village = find_village(20, max_score=70, multiplier=1.1, min_dist = 8)
+f_ocean = find_ocean(300,max_score = 300,min_dist = float('inf'))
+f_spawner = find_spawner(20,max_score = 120,multiplier = 1.5)
+f_mineshaft = find_mineshaft(300,max_score = 500,min_dist = 20)
+f_jungle = find_jungle(300,max_score = 300,min_dist = 20)
+
+
+r = check_world('a3' ,checks=[f_village,f_ocean,f_spawner,f_mineshaft,f_jungle])
+#r = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\a15\\region\\r.-1.0.mca',print_info=True) #
+
+
+#for f in [f_village,f_ocean,f_spawner,f_mineshaft,f_jungle]:
+#    print(repr(f))
+#
+
+'''def get_score(block):
+        if block.name in ('minecraft:torch','minecraft:wall_torch') and block.coords[1] > 55:
+            for i in range(40):
+                if block.chunk.blocks[(block.coords[0],block,coords[1]+i,block.coords[2])] in ('minecraft:stone','minecraft:dirt'):
+                    break
                 else:
-                    if known_neighbour: return 100
-                        
-                    for i in range(-1,2,2):
-                        for j in range(-1,2,2):
-                            neighbour_coords = (chunk.coords[0] + i, chunk.coords[1] + j)
-                            if neighbour_coords in chunk.region.chunks and find_underwater_ravine(chunk.region.chunks[neighbour_coords],ignore_found=True,known_neighbour=True):
-                                if not ignore_found: find_underwater_ravine.found = True
-                                return 100
-                    return 0
-    return 0
-find_underwater_ravine.found = False
+                    bonus = self.score * multiplier ** len(detections)
+                    self.detections.append(block.chunk.coords)
+                    return bonus
 
-def find_sunken_boat(chunk):
+class find_ocean(object):
+    def '''
+
+'''def find_sunken_boat(chunk):
     for y in range(20,50):
         for dx in range(16):
             for dz in range(16):
@@ -270,10 +287,10 @@ def find_sunken_boat(chunk):
                             expected_blocks = 0
                             break;
                     else:
-                        if expected_blocks > 59 - cy - 4 > 10: return 100
-    return 0
-#find_underwater_ravine.found = False
+                        if expected_blocks > 59 - cy - 4 > 10: return 100'''
 
+#find_underwater_ravine.found = False
+'''
 def find_underwater_boat_near_ravine(chunk,ignore_found=False):
     if not find_underwater_boat_near_ravine.found or ignore_found:
         if find_sunken_boat(chunk):
@@ -287,24 +304,22 @@ def find_underwater_boat_near_ravine(chunk,ignore_found=False):
                         return 100
     return 0
     #except notRavineException:pass
-find_underwater_boat_near_ravine.found = False    
-                                 
-def find_jungle_wood(block):
-    if not find_jungle_wood.found and block.name == b'minecraft:jungle_wood':
-        find_jungle_wood.found = True
-        return 10
-    return 0
-find_jungle_wood.found = False
+find_underwater_boat_near_ravine.found = False    '''
 
-for i in range(5,44):
-    create_world(' num ' + str(i), 90)
+#for i in range(5,44):
+#   #score,max_score=None,multiplier = 1,min_dist=float('inf')
+'''create_world(' num ' + str(i), 90)
     time.sleep(8)
-    check = check_world('New World num ' + str(i),chunk_checks=[find_underwater_boat_near_ravine],block_checks=[find_jungle_wood])
+    check = check_world('New World num ' + str(i),checks=[f_village,f_ocean,f_spawner,f_mineshaft,f_jungle])
     if not check:
         print('FAIL')
         #delete_last_world()
     else:
         print('PASS',check )
     find_underwater_boat_near_ravine.found = False
-    find_jungle_wood.found = False
+    find_jungle_wood.found = False'''
+
+
+
+#+ str(i)
 
