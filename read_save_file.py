@@ -174,7 +174,10 @@ class Block():
         return (self.coords[0] + chunk_coords[0], self.coords[1], self.coords[2] + chunk_coords[1])
 
     def above(self,amount):
-        return self.chunk.blocks[ (self.coords[0],self.coords[1]+amount,self.coords[2]) ]
+        new_coords = (self.coords[0],self.coords[1]+amount,self.coords[2])
+        if new_coords in self.chunk.blocks:
+            return self.chunk.blocks[ new_coords ]
+        return None
 
     '''
     replaced to easily support further block state property parsing
@@ -191,6 +194,8 @@ class Block():
             return None
         return self.Palette[self.state].description
     '''
+
+
 
 class Region():
     '''
@@ -209,9 +214,11 @@ class Region():
             #newPalette = Palette()
             
             #for all chunks (16x256x16)
+            if print_info: print('parsing region ' + path.split('/')[-1].split('\\')[-1] )
+            
             for index in range(0,4096,4):
                 if print_info and index % (4096 // 10) < 4:
-                    dig = 9 - (index // (4096 // 10))
+                    dig = 9 - (index // (4096 // 10)) + 1
                     print(str( dig ) + '...',end='\n' if dig == 0 else '')
                 
                 offset = (int.from_bytes(locations[index:index+3],'big')-2)*4096
@@ -249,7 +256,7 @@ class Region():
                                         
                                         dat_pos = (x+z*16+y*256) * b_size
                                         val = get_bits(int_val,dat_pos,b_size)
-                                        newChunk.blocks[(x,y+ys*16,z)] = Block((x,y,z),newChunk,palette,val)
+                                        newChunk.blocks[(x,y+ys*16,z)] = Block((x,ys*16,z),newChunk,palette,val)
                                         
                     elif version == '1.12': #may work for versions as far back as 1.3
                         chunk_arr = np.full((16,256,16),-1,dtype=int) #chunks are descriped as a numpy array
@@ -294,10 +301,10 @@ def get_indexs(byteData,val):
 
 
 
-if __name__ == '__main__':
-    print('start parse...')
-    rn1n1 = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region\\r.-1.-1.mca',print_info=True)
-    r00 = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region\\r.0.0.mca',print_info=True)
+#if __name__ == '__main__':
+    #print('start parse...')
+    #rn1n1 = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region\\r.-1.-1.mca',print_info=True)
+    #r00 = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region\\r.0.0.mca',print_info=True)
 
 '''
 def get_Palette(byteData):
