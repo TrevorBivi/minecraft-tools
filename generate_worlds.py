@@ -94,30 +94,46 @@ def create_world(name,generation_time):
     pag.click(button)
     time.sleep(1)
 
-def check_world(name, checks=[], min_score = 1,remove_unused_chunks=True,print_info=True):
-    score = 0
-    region_dir = mc_dir +"\\saves\\" + name + '\\region'
-    print(region_dir)
-    for regionFile in os.listdir(region_dir):
-        if regionFile.startswith('r.') and regionFile.endswith('.mca'):
-            region = Region(region_dir + '\\' + regionFile,print_info=print_info)
-            important_chunks = {}
-            check_count = 0
-            for chunk,key in zip(region.chunks.values(),region.chunks):
-                if print_info and check_count % 10 == 0: print( '  chunk ' + str(check_count) + '/' + str(len(region.chunks)) + ' ' + str(regionFile)[2:-4] + '.' + str(chunk.coords) + '...')
-                #print('see a chunk with palette', [i.name for i in chunk.palette.states])
-                chunk_score = sum( (check.check(chunk) for check in checks) )
-                if chunk in tuple((check.detections[-1] for check in checks if len(check.detections))):
-                    important_chunks[key] = chunk
-                check_count += 1
-            if remove_unused_chunks:
-                region.chunks = important_chunks
+def check_world(checks=[], min_score = 1,remove_unused_chunks=True,print_info=True, **kwargs):
+    def check_region(reg):
+        important_chunks = {}
+        check_count = 0
+        reg_score = 0
+        for chunk,key in zip(reg.chunks.values(),reg.chunks):
+            if print_info and check_count % 10 == 0:
+                print( '  chunk ' + str(check_count) + '/' + str(len(reg.chunks)) + '.' + str(chunk.coords) + '...')
+            #print('see a chunk with palette', [i.name for i in chunk.palette.states])
+            chunk_score = sum( (check.check(chunk) for check in checks) )
+            if chunk in tuple((check.detections[-1] for check in checks if len(check.detections))):
+                important_chunks[key] = chunk
+            check_count += 1
+        if remove_unused_chunks:
+            reg.chunks = important_chunks
+        reg_score += chunk_score
+            
+        return reg_score
 
-                ##for bcheck in block_checks:
+                 ##for bcheck in block_checks:
                     ##score += sum((bcheck(block) for block in chunk.blocks.values()))
+    
+    score = 0
+    #region_dir = mc_dir +"\\saves\\" + name + '\\region'
+    #print(region_dir)
+    regions = []
+    if 'save_name' in kwargs:
+        region_dir = mc_dir +"\\saves\\" + kwargs['save_name'] + '\\region'
+        for region_file in os.listdir(region_dir):
+            if region_file.startswith('r.') and regionFile.endswith('.mca'):
+                new_region = Region(region_dir + '\\' + region_file,print_info=print_info)
+            score += check_region(new_region)
+            regions.append(new_region)
+    elif 'regions' in kwargs:
+        for new_region in kwargs['regions']:
+            score += check_region(new_region)
+            regions.append(new_region)
+          
     print(score)
-    if score > min_score:
-        return True
+    return regions
             
 def delete_last_world():
     view = screenshot()
@@ -246,16 +262,29 @@ class find_spawner(landmark_scorer):
             return score
         return 0
 
-f_village = find_village(20, max_score=70, multiplier=1.1, min_dist = 8)
-f_ocean = find_ocean(300,max_score = 300,min_dist = float('inf'))
-f_spawner = find_spawner(20,max_score = 120,multiplier = 1.5)
-f_mineshaft = find_mineshaft(300,max_score = 500,min_dist = 20)
-f_jungle = find_jungle(300,max_score = 300,min_dist = 20)
 
 
-r = check_world('a3' ,checks=[f_village,f_ocean,f_spawner,f_mineshaft,f_jungle])
-#r = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\a15\\region\\r.-1.0.mca',print_info=True) #
 
+#
+
+if __name__ == '__main__':
+
+    f_village = find_village(20, max_score=70, multiplier=1.1, min_dist = 8)
+    f_ocean = find_ocean(300,max_score = 300,min_dist = float('inf'))
+    f_spawner = find_spawner(20,max_score = 120,multiplier = 1.5)
+    f_mineshaft = find_mineshaft(300,max_score = 500,min_dist = 20)
+    f_jungle = find_jungle(300,max_score = 300,min_dist = 20)
+    
+    ### use all regions
+    #r = check_world(save_name='w1' ,checks=[f_village,f_ocean,f_spawner,f_mineshaft,f_jungle])
+
+    ### select specific chunks
+    r = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\w1\\region\\r.-1.-1.mca',print_info=True) #
+    check_world(regions=[r] ,checks=[f_village,f_ocean,f_spawner,f_mineshaft,f_jungle])
+
+### SCRAPS BELOW
+### SCRAPS BELOW
+############################################
 
 #for f in [f_village,f_ocean,f_spawner,f_mineshaft,f_jungle]:
 #    print(repr(f))
