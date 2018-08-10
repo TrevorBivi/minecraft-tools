@@ -25,6 +25,104 @@ https://minecraft.gamepedia.com/Talk:Chunk_format
 import zlib
 import numpy as np #you can comment this out if you don't need to parse pre-1.13 saves
 import math as m
+import PIL
+from PIL import Image
+
+mc_dir = 'C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft'
+
+texture_sizes = [ Image.open(mc_dir + '\\textures_' + str(i) + '.png') for i in range(5)  ]
+
+
+def texture(name):
+    known = ((b'minecraft:sand',(19,7)),
+    (b'minecraft:grass_block',(3,15),(0.3,1,0.3)),
+    (b'minecraft:dirt',(8,6)),
+    (b'minecraft:lava',(0,0)),
+    (b'snow_layer',(20,5)),
+    (b'water',(2,0)),
+    (b'stone',(20,9)),
+    (b'coal_ore',(1,5)),
+    (b'sand_stone',(19,12)),
+    (b'leaves',(5,13),(0.3,1,0.3)))
+
+    for i,nm in enumerate(known):
+        if (nm[0].find(b'minecraft:') != -1 and nm[0] == name) or nm[0][-len(name):] == name:
+            return known[i]
+        return (b'error:unknown',(25,18))
+            
+
+
+    
+def world_edges(regions):
+    min_x = 99999999
+    max_x = -99999999
+    min_z = 99999999
+    max_z = -99999999
+    for r in regions:
+        min_x = min(min_x,r.coords[0])
+        max_x = max(max_x,r.coords[0])
+        min_z = min(min_z,r.coords[1])
+        max_z = max(max_z,r.coords[1])
+    return min_x,min_z,max_x,max_z
+
+
+
+def generate_world_image(regions,size=4):
+    reg_edges = world_edges(regions)
+    pixels_in_reg = 32 * 2 ** (4 - size)
+
+    top_left = reg_edges[0] * pixels_in_reg, reg_edges[1] * pixels_in_reg
+    
+    b_size = ((reg_edges[2] - reg_edges[0] + 1) * pixels_in_reg   ,(reg_edges[3] - reg_edges[1] + 1)  * pixels_in_reg )
+    img = Image.new('RGB',b_size)
+    pixels = img.load()
+
+    for r in regions:
+        for c in r.chunks:
+            ch = r.chunks[c]
+            for x in range(16):
+                for z in range(16):
+                    for y in range(255,0,-1):
+                        if (x,y,z) in ch.blocks and ch.blocks[(x,y,z)].name and ch.blocks[(x,y,z)].name != b'minecraft:air':
+                            tile = texture(ch.blocks[(x,y,z)].name)
+                            for npx in range(2 ** (4 - size) ):
+                                for npy in range(2 ** (4 - size)):
+                                    p_coords =  (  (ch.blocks[(x,y,z)].absolute_coords[0] - top_left[0]) * 2 ** (4 - size) + npx   , #  * 32 + c[0] * 16 + x
+                                                   (ch.blocks[(x,y,z)].absolute_coords[2] - top_left[1]) * 2 ** (4 - size) + npy    )  # * 32  + c[1] * 16 + z
+
+                                    print(ch.blocks[(x,y,z)].absolute_coords, top_left )
+                                    print(p_coords)
+                                    print((npx + tile[1][0],npy + tile[1][1]))
+
+                                    pixels[ p_coords[0],p_coords[1]] = texture_sizes[size].getpixel((npx + tile[1][0],npy + tile[1][1]))
+    img.show()
+            
+        
+
+
+
+#img.save("image.png", "PNG")
+    
+
+
+def get_name(inp):
+    '''
+    WIP return string ID if given an int ID or int ID if given a string ID
+    '''
+    pairs = (
+        (b'minecraft:grass_block'),
+        (b'minecraft:dirt'),
+        (b'minecraft:lava'),
+        (b'snow_layer'),
+        (b'water'),
+        (b'stone'),
+        (b'coal_ore'),
+        ('')
+        )
+    if isinstance(inp,int):pass
+        
+
+def show_map_world(regions): pass
 
 def change_coords(xz,cur_sys,new_sys):
     '''
