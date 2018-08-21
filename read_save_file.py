@@ -25,6 +25,146 @@ https://minecraft.gamepedia.com/Talk:Chunk_format
 import zlib
 import numpy as np #you can comment this out if you don't need to parse pre-1.13 saves
 import math as m
+import PIL
+from PIL import Image
+
+mc_dir = 'C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\'
+
+texture_dir = 'C:\\Users\\Trevor\\Desktop\\blocks\\' #textures for blocks
+#texture_sizes = [ Image.open(mc_dir + '\\textures_' + str(i) + '.png') for i in range(5)  ]
+
+kn = {}
+def texture(name):
+    global kn
+
+    if name in ( b'minecraft:water',  b'minecraft:lava' ):
+        name += b'_still'
+    if name in kn:
+        return kn[name]
+    else:
+        try:
+            im = Image.open(texture_dir + name[10:].decode('utf8') + '.png')
+        except Exception as tmp:
+            try:
+                im = Image.open(texture_dir + name[10:].decode('utf8') + '_top.png')
+            except:
+                im = Image.open(texture_dir + 'debug.png')
+        kn[name] = im
+    return im
+
+    
+def world_edges(regions):
+    min_x = 99999999
+    max_x = -99999999
+    min_z = 99999999
+    max_z = -99999999
+    for r in regions:
+        min_x = min(min_x,r.coords[0])
+        max_x = max(max_x,r.coords[0])
+        min_z = min(min_z,r.coords[1])
+        max_z = max(max_z,r.coords[1])
+    return min_x,min_z,max_x+1,max_z+1
+
+def get_biv_tile_pos(block,tl):
+    return (block.absolute_coords[0] - tl[0] * 32 * 16) * 16,(block.absolute_coords[2] - tl[1] * 32 * 16) * 16
+
+
+def test_ch(ch):
+    
+    for x in range(16):
+        for z in range(16):
+            surfaceless = True
+            for y in range(255,0,-1):
+                if (x,y,z) in ch.blocks:
+                    if ch.blocks[(x,y,z)].name == b'minecraft:air':
+                        if surfaceless:
+                            surfaceless = False
+                            print('air',x,y,z)
+                    if not ch.blocks[(x,y,z)].name:
+                        print('nothing',x,y,z)
+                    if ch.blocks[(x,y,z)].name and ch.blocks[(x,y,z)].name != b'minecraft:air':
+                        print('found',x,y,z,ch.blocks[(x,y,z)].name,surfaceless)
+                        break
+
+def print_col(ch):
+    for y in range(255):
+        for z in range(16):
+            for x in range(16):
+                if (x,y,z) in ch.blocks:
+                    print(x,y,z,ch.blocks[(x,y,z)].name)
+            
+
+def generate_biv(regions,size=4):
+    block_size = 16
+    chunk_size = 16 * block_size
+    reg_size = 32 * chunk_size
+    
+    reg_edges = world_edges(regions)
+
+    top_left = reg_edges[0] * reg_size, reg_edges[1] * reg_size
+    
+    b_size = ((reg_edges[2] - reg_edges[0]) * reg_size   ,(reg_edges[3] - reg_edges[1]) * reg_size )
+    print('world has edges',reg_edges,'biv of size',b_size)
+    img = Image.new('RGB',b_size)
+    pixels = img.load()
+    
+    for r in regions:
+        lch = len(r.chunks)
+        print(lch,'chunks')
+        for chi,c in enumerate(r.chunks):
+            #if chi < 50: continue
+            #if chi > 200: break
+            print(chi,'/',lch)
+            ch = r.chunks[c]
+            
+            for x in range(16):
+                for z in range(16):
+                    surfaceless = True
+                    for y in range(255,0,-1):
+                        if (x,y,z) in ch.blocks:
+                            if ch.blocks[(x,y,z)].name == b'minecraft:air':
+                                surfaceless = False
+                            if ch.blocks[(x,y,z)].name and ch.blocks[(x,y,z)].name != b'minecraft:air':
+                                if surfaceless: break
+                                
+                                tile = texture(ch.blocks[(x,y,z)].name)
+                                p_coords =  get_biv_tile_pos(ch.blocks[(x,y,z)], reg_edges)
+                                #print((x,y,z) ,p_coords )
+                                for npx in range(16):
+                                    for npy in range(16):
+                                        #print('found',ch.blocks[(x+npx,y,z+npy)].name)
+                                          # * 32  + c[1] * 16 + z
+                                        pixels[ p_coords[0] + npx ,p_coords[1] + npy] = tile.getpixel((npx,npy))
+                                        #print('done something')
+                                break
+    return img
+            
+        
+
+
+
+#img.save("image.png", "PNG")
+    
+
+
+def get_name(inp):
+    '''
+    WIP return string ID if given an int ID or int ID if given a string ID
+    '''
+    pairs = (
+        (b'minecraft:grass_block'),
+        (b'minecraft:dirt'),
+        (b'minecraft:lava'),
+        (b'snow_layer'),
+        (b'water'),
+        (b'stone'),
+        (b'coal_ore'),
+        ('')
+        )
+    if isinstance(inp,int):pass
+        
+
+def show_map_world(regions): pass
 
 def change_coords(xz,cur_sys,new_sys):
     '''
@@ -138,6 +278,18 @@ class Chunk():
         self.region = region
         self.palette = [] #for convinence. chunks dont actually have pallets in game, only sections within them.
 
+    @property
+    def absolute_coords(self):
+        region_coords = change_coords(self.region.absolute_coords,'region','chunk')
+        return tuple((self.coords[i] + region_coords[i] for i in range(2)))
+
+    def y_range(self,mini = 0,maxi = 255,dv=1,dh=1):
+        for x in range(0,16,dh):
+            for z in range(0,16,dv):
+                for y in range(mini,maxi,dv):
+                    if (x,y,z) in self.blocks:
+                        yield self.blocks[(x,y,z)]
+                    
 class Block():
     '''
     represents a block in game
@@ -156,6 +308,17 @@ class Block():
                 return None
         raise AttributeError('attribute does not exist')
 
+    @property
+    def absolute_coords(self):
+        chunk_coords = self.chunk.absolute_coords  
+        return (self.coords[0] + chunk_coords[0] * 16, self.coords[1], self.coords[2] + chunk_coords[1] * 16)
+
+    def above(self,amount):
+        new_coords = (self.coords[0],self.coords[1]+amount,self.coords[2])
+        if new_coords in self.chunk.blocks:
+            return self.chunk.blocks[ new_coords ]
+        return None
+
     '''
     replaced to easily support further block state property parsing
 
@@ -171,6 +334,8 @@ class Block():
             return None
         return self.Palette[self.state].description
     '''
+
+bsss = None
 
 class Region():
     '''
@@ -189,8 +354,12 @@ class Region():
             #newPalette = Palette()
             
             #for all chunks (16x256x16)
+            if print_info: print('parsing region ' + path.split('/')[-1].split('\\')[-1] )
+            
             for index in range(0,4096,4):
-                if print_info and index % 256 == 0: print('#',end='')
+                if print_info and index % (4096 // 10) < 4:
+                    dig = 9 - (index // (4096 // 10)) + 1
+                    print(str( dig ) + '...',end='\n' if dig == 0 else '')
                 
                 offset = (int.from_bytes(locations[index:index+3],'big')-2)*4096
                 if offset >= 0:
@@ -199,6 +368,11 @@ class Region():
                     chunk_coords = file_location_to_chunk(index)
                     
                     if version == '1.13':
+                        if chunk_coords == (10,2):
+                            global bsss
+                            bsss = chunk_dat
+                            print('bss def')
+                            
                         newChunk = Chunk(chunk_coords,self) #chunks are described using new chunk object (using property 'blocks'-a dict of coord keys and block object values )
                         self.chunks[chunk_coords] = newChunk
 
@@ -208,6 +382,9 @@ class Region():
                         block_state_starts = get_indexs(chunk_dat,b'\x0c\x00\x0bBlockStates') #list of state of blocks (Palette index)   
                         palette_starts = get_indexs(chunk_dat,b'\t\x00\x07Palette') #blocks that there are at least 1 of in this section (and always air at index 0)
                         palette_ends = get_indexs(chunk_dat, b'\x07\x00\x08SkyLight')
+
+                        
+                        
                         assert len(section_ys) == len(block_state_starts ) == len(palette_starts) == len(palette_ends)
 
                         #for all sections (16x16x16)
@@ -217,17 +394,27 @@ class Region():
                             palette = Palette(chunk_dat[psi:pei])#get_Palette(chunk_dat[psi:pei])
 
                             newChunk.palette.states += [s for s in palette.states if s not in newChunk.palette.states]
+                            if chunk_coords == (14,3):
+                                print('bsz',(psi-bsi-18)/8/64,'ys',ys,'yi',yi,'ps',[j.name for j in palette.states])
                             b_size = int((psi-bsi-18)/8/64)
-                            assert b_size ==  (psi-bsi-18)/8/64
-                            int_val = int.from_bytes( chunk_dat[bsi + 17:psi-1],byteorder='little')
-                            
+                            assert b_size == (psi-bsi-18)/8/64
+                            #if chunk_coords == (10,2):
+                                #print('intv',chunk_dat[bsi + 17 - 17:bsi + 17 + 32 - 17],chunk_dat[psi-1 - 512:psi - 1 + 8])
+                            int_val =int.from_bytes( chunk_dat[bsi + 8+1:psi],byteorder='big')# int.from_bytes( chunk_dat[bsi + 7:psi],byteorder='little')
+
+                            if chunk_coords == (14,3):
+                                print( bin(int.from_bytes( chunk_dat[bsi + 8+1:psi],byteorder='little')))
+                                print( bin(int.from_bytes( chunk_dat[bsi + 8+1:psi],byteorder='big')))
+                                #print( bin())
+                                #print('int val',int_val)
+                                
                             for y in range(16):
                                 for z in range(16):
                                     for x in range(16):
                                         
                                         dat_pos = (x+z*16+y*256) * b_size
                                         val = get_bits(int_val,dat_pos,b_size)
-                                        newChunk.blocks[(x,y+ys*16,z)] = Block((x,y,z),newChunk,palette,val)
+                                        newChunk.blocks[(x,y+ys*16,z)] = Block((x,y+ys*16,z),newChunk,palette,val)
                                         
                     elif version == '1.12': #may work for versions as far back as 1.3
                         chunk_arr = np.full((16,256,16),-1,dtype=int) #chunks are descriped as a numpy array
@@ -247,7 +434,10 @@ class Region():
                         chunks[chunk_coords] = chunk_arr
                     else:
                         raise ValueError('unsupported save version (version=' + version + ')')
-                    
+    @property
+    def absolute_coords(self):
+        return self.coords
+    
 def id_counts(chunk):
     '''
     return count of block id in chunk
@@ -269,10 +459,11 @@ def get_indexs(byteData,val):
 
 
 
-#f __name__ == '__main__':
-#    print('start parse...')
-#    r = Region(('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region',print_info=True)
-
+if __name__ == '__main__':
+    #print('start parse...')
+    r1 = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\New World num 10\\region\\r.0.0.mca',print_info=True)
+    
+    #r00 = Region('C:\\Users\\Trevor\\AppData\\Roaming\\.minecraft\\saves\\world1\\region\\r.0.0.mca',print_info=True)
 
 '''
 def get_Palette(byteData):
