@@ -30,9 +30,90 @@ import win32gui
 import time
 import math as m
 
+import ctypes
+
 from read_memory import *
 
-window = win32gui.FindWindow(None,"minecraft 1.12.2")
+window = win32gui.FindWindow(None,"Minecraft 1.13.2")
+
+### Scan code event
+class MOUSEINPUT(ctypes.Structure):
+    _fields_ = (('dx', ctypes.c_long),
+                ('dy', ctypes.c_long),
+                ('mouseData', ctypes.c_ulong),
+                ('dwFlags', ctypes.c_ulong),
+                ('time', ctypes.c_ulong),
+                ('dwExtraInfo', ctypes.POINTER(ctypes.c_ulong)))
+
+class KEYBDINPUT(ctypes.Structure):
+    _fields_ = (('wVk', ctypes.c_ushort),
+                ('wScan', ctypes.c_ushort),
+                ('dwFlags', ctypes.c_ulong),
+                ('time', ctypes.c_ulong),
+                ('dwExtraInfo', ctypes.POINTER(ctypes.c_ulong)))
+
+class HARDWAREINPUT(ctypes.Structure):
+    _fields_ = (('uMsg', ctypes.c_ulong),
+                ('wParamL', ctypes.c_ushort),
+                ('wParamH', ctypes.c_ushort))
+    
+class _INPUTunion(ctypes.Union):
+    _fields_ = (('mi', MOUSEINPUT),
+                ('ki', KEYBDINPUT),
+                ('hi', HARDWAREINPUT))
+
+class INPUT(ctypes.Structure):
+    _fields_ = (('type', ctypes.c_ulong),
+                ('union', _INPUTunion))
+
+def send_input(*inputs):
+    nInputs = len(inputs)
+    LPINPUT = INPUT * nInputs
+    pInputs = LPINPUT(*inputs)
+    cbSize = ctypes.c_int(ctypes.sizeof(INPUT))
+    return ctypes.windll.user32.SendInput(nInputs, pInputs, cbSize)
+
+scan_codes = {' ':57,
+              'w':17,
+              'a':30,
+              's':31,
+              'd':32,
+              'e':18}
+
+INPUT_MOUSE = 0
+INPUT_KEYBOARD = 1
+IMPUT_HARDWARE = 2
+
+KEYEVENTF_KEYUP = 0x0002
+KEYEVENTF_SCANCODE = 0x0008
+
+def key_input(code,flags):
+    kbinp = KEYBDINPUT(code, code, flags, 0,None)
+    print('cd',code,'fg',flags)
+    inp = INPUT(
+        INPUT_KEYBOARD,
+        _INPUTunion(ki = kbinp)
+        )
+    send_input(inp)
+
+def sc_key_up(scan_code,extra_flags=KEYEVENTF_SCANCODE):
+    if not extra_flags: extra_flags = 0
+    key_input(scan_code, KEYEVENTF_KEYUP | extra_flags) #KEYEVENTF_SCANCODE |
+
+def sc_key_down(scan_code,extra_flags=KEYEVENTF_SCANCODE):
+    if not extra_flags: extra_flags = 0
+    key_input(scan_code,extra_flags) #
+
+def sc_key_press(scan_code,press_time=0.01,extra_flags=KEYEVENTF_SCANCODE):
+    key_down(scan_code,extra_flags)
+    time.sleep(press_time)
+    key_up(scan_code,extra_flags)
+
+#time.sleep(4);key_press(0x49)
+
+
+
+
 
 ###### primary mouse controls
 def click(key = 'left', press_time = 0.05):
@@ -66,20 +147,27 @@ def key_dwn(key=None,ignore_crouch=False):
     if key:
         if key == 'ctrl' and ignore_crouch:
             player_height = 1.54
-        win32gui.SendMessage(window,#win handle
-                             win32con.WM_KEYDOWN,#msg
-                             key_codes[key],
-                             0) # all 0 flags is fine
+        if key in ('ctrl','shift'):
+            win32gui.SendMessage(window,#win handle
+                                 win32con.WM_KEYDOWN,#msg
+                                 key_codes[key],
+                                 0) # all 0 flags is fine
+        else:
+            sc_key_down(scan_codes[key])
+        
 
 def key_up(key=None,ignore_crouch=False):
     if key:
         if key == 'ctrl' and ignore_crouch:
             player_height = 1.62
-        win32gui.SendMessage(window,
-                             win32con.WM_KEYUP,
-                             key_codes[key],
-                             0xC0000000) # previous key state and transition state flags must be 1
-
+        if key in ('ctrl','shift'):
+            win32gui.SendMessage(window,
+                                 win32con.WM_KEYUP,
+                                 key_codes[key],
+                                 0xC0000000) # previous key state and transition state flags must be 1
+        else:
+            sc_key_up(scan_codes[key])
+            
 def press(key,press_time=0.05,ignore_crouch=False):
     key_dwn(key,ignore_crouch)
     time.sleep(press_time)
@@ -313,17 +401,20 @@ def move_to(xz, err = 0.2, special_key=None,scan_freq=0.15, max_time = 99):
         for k in move_keys:
             if not k in keys_down:
                 key_dwn(k)
+                print('KEY DOWN',k)
                 
         #stop pressing keys that aren't needed
         for k in keys_down:
             if not k in move_keys:
                 key_up(k)
+                print('KEY UP',k)
 
         keys_down = move_keys
         time.sleep(scan_freq)
         pos = player_position()
         dx = xz[0] - pos['x']
         dz = xz[1] - pos['z']
+        print('xz',sz,'pos',pos,'dx,dz',dx,dz)
 
     #stop pressing all keys
     for k in keys_down:
