@@ -6,7 +6,7 @@ IMPORTANT METHODS:
 player_position -- return information about player coordinates and rotation
 
 REQUIREMENTS:
-- must be running 1.12.2
+- must be running 1.13.2 -- there is a version that works with 1.12.2 in git history
 
 TODO:
 - add support for reading base pointers relative to threadstacks instead of just process modules
@@ -64,7 +64,7 @@ def get_module_addr(process,name):
         if name in str(win32process.GetModuleFileNameEx(process,m )):
             return m
 
-open_al_addr = get_module_addr(processHandle,"OpenAL64.dll")
+open_al_addr = get_module_addr(processHandle,"OpenAL.dll")
 
 ###### find player position x and camera rotation y relative to desired modules
 ReadProcessMemory = windll.kernel32.ReadProcessMemory
@@ -86,10 +86,10 @@ def get_val(process,addr,typ):
     return struct.unpack(typ, struct.pack("I", buffer.value)   )[0]
 
 ######x val
-pointer_addr = open_al_addr + 0x0005C308 # find the base pointer in module that x coordinate memory adress can be found relative to -- this was found using pointer scanning on the minecraft process with Cheat Engine
+pointer_addr = open_al_addr + 0x000DEC48 # find the base pointer in module that x coordinate memory adress can be found relative to -- this was found using pointer scanning on the minecraft process with Cheat Engine
 pointed_to = get_val(processHandle,pointer_addr,'l')
-char_x_addr = pointed_to + 0xC0
-
+char_x_addr = pointed_to + 0xF0
+print('CHAR X ADDR',char_x_addr)
 ####### other values are nearby -- found with Cheat Engine's memory viewer
 char_y_addr = char_x_addr + 4
 char_z_addr = char_x_addr + 8
@@ -98,11 +98,10 @@ char_z_addr = char_x_addr + 8
 # values relating to camera rotation used throughout minecraft 
 # values relating to ry can behave strangely under certain circumstances so we need to
 # use different ones depending on the sinage of rx
-char_sin_rx_addr = char_x_addr + 80 
-char_sin_ry_addr = char_x_addr + 36 
-char_cos_ry_addr = char_x_addr + 44
-char_sin_ry_addr2 = char_x_addr + 92-16-12 
-char_cos_ry_addr2 = char_x_addr + 96
+char_rx_addr = char_x_addr + 0x74
+char_sin_rx_nsin_ry_addr = char_x_addr + 0x54
+char_nsin_ry_addr = char_x_addr + 0x70
+char_ncos_ry_addr = char_x_addr + 0x50
 
 player_height = 1.62
 
@@ -110,36 +109,21 @@ def player_position():
     '''
     return dict with information about player position and rotation
     '''
-    sin_rx = get_val(processHandle, char_sin_rx_addr, 'f')
-    
-    #determine camera rotation
-    rx = m.degrees(m.asin(sin_rx))
+    nsin_ry = get_val(processHandle, char_nsin_ry_addr, 'f')    
+    ncos_ry = get_val(processHandle, char_ncos_ry_addr, 'f')
 
-    #determine ry using valid combination for rotation
-    if 0 <= rx < 45:
-        sin_ry = get_val(processHandle, char_sin_ry_addr2, 'f')
-        ncos_ry = get_val(processHandle, char_cos_ry_addr2, 'f')
-        ry = m.degrees(m.atan2( sin_ry, -ncos_ry ))
-    elif -45 <= rx < 0:
-        nsin_ry = get_val(processHandle, char_sin_ry_addr2, 'f')
-        ncos_ry = get_val(processHandle, char_cos_ry_addr2, 'f')
-        ry = -m.degrees(m.atan2( -nsin_ry, -ncos_ry ))
-    elif rx > 45:
-        nsin_ry = get_val(processHandle, char_sin_ry_addr, 'f')
-        cos_ry = get_val(processHandle, char_cos_ry_addr, 'f')
-        ry = m.degrees(m.atan2( -nsin_ry, cos_ry ))
-    else:
-        sin_ry = get_val(processHandle, char_sin_ry_addr, 'f')
-        ncos_ry = get_val(processHandle, char_cos_ry_addr, 'f')
-        ry = m.degrees(m.atan2( sin_ry, -ncos_ry ))
+    ry = m.degrees(m.atan2( -nsin_ry, -ncos_ry ) )
+    char_sin_rx_nsin_ry = get_val(processHandle, char_sin_rx_nsin_ry_addr, 'f')    
+    rx = m.degrees(m.asin(char_sin_rx_nsin_ry / nsin_ry))
     
-    return {
+    ret = {
         'x':get_val(processHandle, char_x_addr, 'f'),
         'y':get_val(processHandle, char_y_addr, 'f')- player_height,  # give feet coords like in game's debug screen instead of head coords
         'z':get_val(processHandle, char_z_addr, 'f'),
-        'rx':rx,
+        'rx': rx,
         'ry': ry
     }
+    return ret
 
 class THREADENTRY32(Structure):
     _fields_ = [
