@@ -109,6 +109,28 @@ def sc_key_press(scan_code,press_time=0.01,extra_flags=KEYEVENTF_SCANCODE):
     time.sleep(press_time)
     key_up(scan_code,extra_flags)
 
+
+SM_CXSCREEN = 0
+SM_CYSCREEN = 1
+MOUSEEVENTF_MOVE = 0x0001 # mouse move 
+MOUSEEVENTF_LEFTDOWN = 0x0002 # left button down 
+MOUSEEVENTF_LEFTUP = 0x0004 # left button up 
+MOUSEEVENTF_RIGHTDOWN = 0x0008 # right button down 
+MOUSEEVENTF_RIGHTUP = 0x0010 # right button up 
+MOUSEEVENTF_MIDDLEDOWN = 0x0020 # middle button down 
+MOUSEEVENTF_MIDDLEUP = 0x0040 # middle button up 
+MOUSEEVENTF_WHEEL = 0x0800 # wheel button rolled 
+MOUSEEVENTF_ABSOLUTE = 0x8000 # absolute move 
+
+def wm_mouse_move (x_pos, y_pos,flags=MOUSEEVENTF_ABSOLUTE):
+        """generate a mouse event"""
+        flags = MOUSEEVENTF_MOVE + flags
+        x_calc = ctypes.c_long(int(65536 * x_pos / ctypes.windll.user32.GetSystemMetrics(SM_CXSCREEN) + 1))
+        y_calc = ctypes.c_long(int(65536 * y_pos / ctypes.windll.user32.GetSystemMetrics(SM_CYSCREEN) + 1))
+        print('mmove',x_calc,y_calc)
+        return ctypes.windll.user32.mouse_event(flags, x_calc, y_calc, 0, 0)
+
+
 #time.sleep(4);key_press(0x49)
 
 
@@ -125,15 +147,18 @@ def click(key = 'left', press_time = 0.05):
         win32gui.SendMessage(window, win32con.WM_RBUTTONDOWN, 1, 0)
         time.sleep(press_time)
         win32gui.SendMessage(window, win32con.WM_RBUTTONUP, 1, 0)
-
+        
+center = (400,446)
 def rotate(dy,dx):
     '''
     rotate -- adjust facing by (dy / dx)
     '''
-    screen_box = win32gui.GetWindowRect(window)
-    dy += (screen_box[2] + screen_box[0] )/2+ 1
-    dx += (screen_box[3] + screen_box[1] )/2 + 10
-    win32api.SetCursorPos( (round(dy),round(dx)) )
+    print('rotate to',dy,dx)
+    wm_mouse_move(dy+center[0],dx+center[1])
+    #screen_box = win32gui.GetWindowRect(window)
+    #dy += (screen_box[2] + screen_box[0] )/2+ 1
+    #dx += (screen_box[3] + screen_box[1] )/2 + 10
+    #win32api.SetCursorPos( (round(dy),round(dx)) )
 
 ###### primary key controls
 key_codes = {
@@ -320,11 +345,12 @@ def rotate_helper(rot_inf,sensitivity = 1, err = 0.2, place = False, rot_quad = 
         # get change in rotation needed
         mx,my=0,0
         if ry != None and abs(dry) > err:
-                mx = (dry) * 30 / 4.5 / sensitivity
+                mx = (dry) / 4.5 / sensitivity
         if rx != None and abs(drx) > err:
-                my = (drx) * 30 / 4.5 / sensitivity
+                my = (drx) / 4.5 / sensitivity
         rotate(mx,my)
-        #print('move with',mx,my, 'rot ', dry,drx)
+        
+        print('move with',mx,my, 'rot ', dry,drx)
         return False
 
     if place:
@@ -333,7 +359,7 @@ def rotate_helper(rot_inf,sensitivity = 1, err = 0.2, place = False, rot_quad = 
         
     return True
 
-def rotate_to(rot_inf,sensitivity = 1,err=0.2,place=False,rot_freq=0.1,rot_quad=None):
+def rotate_to(rot_inf,sensitivity = 0.1,err=0.2,place=False,rot_freq=0.1,rot_quad=None):
     '''
     rotate to be facing (ry / rx) or (x,y,z)
 
@@ -414,7 +440,7 @@ def move_to(xz, err = 0.2, special_key=None,scan_freq=0.15, max_time = 99):
         pos = player_position()
         dx = xz[0] - pos['x']
         dz = xz[1] - pos['z']
-        print('xz',sz,'pos',pos,'dx,dz',dx,dz)
+        print('xz',xz,'pos',pos,'dx,dz',dx,dz)
 
     #stop pressing all keys
     for k in keys_down:
