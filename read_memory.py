@@ -114,7 +114,7 @@ def player_position():
 
     ry = m.degrees(m.atan2( -nsin_ry, -ncos_ry ) )
     char_sin_rx_nsin_ry = get_val(processHandle, char_sin_rx_nsin_ry_addr, 'f')    
-    rx = m.degrees(m.asin(char_sin_rx_nsin_ry / nsin_ry))
+    rx = m.degrees(m.asin( max(char_sin_rx_nsin_ry / nsin_ry,0.0001)))
     
     ret = {
         'x':get_val(processHandle, char_x_addr, 'f'),

@@ -78,7 +78,16 @@ scan_codes = {' ':57,
               'a':30,
               's':31,
               'd':32,
-              'e':18}
+              'e':18,
+              '1':2,
+              '2':3,
+              '3':4,
+              '4':5,
+              '5':6,
+              '6':7,
+              '7':8,
+              '8':9,
+              '9':10}
 
 INPUT_MOUSE = 0
 INPUT_KEYBOARD = 1
@@ -148,13 +157,13 @@ def click(key = 'left', press_time = 0.05):
         time.sleep(press_time)
         win32gui.SendMessage(window, win32con.WM_RBUTTONUP, 1, 0)
         
-center = (400,446)
+center = (640,715)
 def rotate(dy,dx):
     '''
     rotate -- adjust facing by (dy / dx)
     '''
     print('rotate to',dy,dx)
-    wm_mouse_move(dy+center[0],dx+center[1])
+    wm_mouse_move(dy,dx,flags=0)
     #screen_box = win32gui.GetWindowRect(window)
     #dy += (screen_box[2] + screen_box[0] )/2+ 1
     #dx += (screen_box[3] + screen_box[1] )/2 + 10
@@ -193,7 +202,7 @@ def key_up(key=None,ignore_crouch=False):
         else:
             sc_key_up(scan_codes[key])
             
-def press(key,press_time=0.05,ignore_crouch=False):
+def press(key,press_time=0.025,ignore_crouch=False):
     key_dwn(key,ignore_crouch)
     time.sleep(press_time)
     key_up(key,ignore_crouch)
@@ -308,7 +317,7 @@ def cam_line(pos):
     slope = (-cosRx * m.sin(m.radians(pos['ry'])), -sinRx,  cosRx * m.cos(m.radians(pos['ry'])))
     return xyz0,slope
 
-def rotate_helper(rot_inf,sensitivity = 1, err = 0.2, place = False, rot_quad = None):
+def rotate_helper(rot_inf,sensitivity = 1, err = 0.4, place = False, rot_quad = None):
     '''
     retrun if was already at right rotation or made a correction
 
@@ -328,7 +337,8 @@ def rotate_helper(rot_inf,sensitivity = 1, err = 0.2, place = False, rot_quad = 
         ry,rx = rot_inf
     
     #determine desired change in ry
-    if ry != None: 
+    if ry != None:
+        print('ry to',ry,'ry cur',pos['ry'])
         dry = ry - pos['ry']
         if dry > 180:
             dry -= 360
@@ -337,6 +347,7 @@ def rotate_helper(rot_inf,sensitivity = 1, err = 0.2, place = False, rot_quad = 
     
     #determine desired change in rx
     if rx != None:
+        print('rx to',rx,' ry cur',pos['rx'])
         drx = rx - pos['rx']
 
     #rotate vision if not looking at right position
@@ -345,12 +356,12 @@ def rotate_helper(rot_inf,sensitivity = 1, err = 0.2, place = False, rot_quad = 
         # get change in rotation needed
         mx,my=0,0
         if ry != None and abs(dry) > err:
-                mx = (dry) / 4.5 / sensitivity
+                mx = (dry) * sensitivity
         if rx != None and abs(drx) > err:
-                my = (drx) / 4.5 / sensitivity
+                my = (drx) * sensitivity
         rotate(mx,my)
         
-        print('move with',mx,my, 'rot ', dry,drx)
+        #print('move with',mx,my, 'rot ', dry,drx)
         return False
 
     if place:
